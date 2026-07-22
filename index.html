@@ -6,7 +6,9 @@
 <meta name="theme-color" content="#060608">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<meta name="apple-mobile-web-app-title" content="How much fun?">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.png">
 <title>How much fun?</title>
 <style>
   :root{
@@ -166,22 +168,19 @@
   /* ---------- Line-Overlay ---------- */
   .overlay{
     position:fixed;inset:0;background:#000;z-index:100;display:none;
+    touch-action:none;
   }
   .overlay.open{display:block}
   .overlay canvas{position:absolute;inset:0;width:100%;height:100%}
-  .caption{
-    position:absolute;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom));
+  .hint{
+    position:absolute;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom));
     text-align:center;pointer-events:none;
-    opacity:0;transform:translateY(8px);
-    transition:opacity .8s ease, transform .8s ease;
+    font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+    color:rgba(255,255,255,.35);
+    opacity:0;transition:opacity .9s ease;
   }
-  .overlay.done .caption{opacity:1;transform:translateY(0)}
-  .caption h2{
-    font-size:20px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:#fff;
-    text-shadow:0 0 20px rgba(255,255,255,.45);
-  }
-  .caption p{margin-top:5px;font-size:14px;color:rgba(255,255,255,.6);letter-spacing:.08em}
-  .caption small{display:block;margin-top:14px;font-size:11px;color:rgba(255,255,255,.3);letter-spacing:.16em;text-transform:uppercase}
+  .overlay.done .hint{opacity:1}
+  .overlay.done .hint.fade{opacity:0}
 </style>
 </head>
 <body>
@@ -212,11 +211,7 @@
 <!-- ============ Overlay ============ -->
 <div class="overlay" id="overlay">
   <canvas id="cv"></canvas>
-  <div class="caption">
-    <h2>Energy Sniff</h2>
-    <p>Die perfekte Line.</p>
-    <small>Tippen zum Beenden</small>
-  </div>
+  <div class="hint" id="swipeHint">Zum Beenden nach oben wischen</div>
 </div>
 
 <script>
@@ -302,12 +297,20 @@ const ctx     = canvas.getContext('2d');
 const STAGGER  = 260;   // ms Versatz pro Linie
 const DURATION = 2000;  // ms Aufbau pro Linie
 
-let lines = [], openT = 0, raf = null, doneFlag = false, wakeLock = null;
+let lines = [], openT = 0, raf = null, doneFlag = false, wakeLock = null, hintTimer = null;
 let W = 0, H = 0, filterOK = true;
 
 document.getElementById('goBtn').addEventListener('click', openOverlay);
-overlay.addEventListener('click', closeOverlay);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });
+
+// Beenden per Wisch nach oben (Escape bleibt als Desktop-Fallback)
+let swipeStartY = null;
+overlay.addEventListener('pointerdown', e => { swipeStartY = e.clientY; });
+overlay.addEventListener('pointerup', e => {
+  if (swipeStartY !== null && swipeStartY - e.clientY > 70) closeOverlay();
+  swipeStartY = null;
+});
+overlay.addEventListener('pointercancel', () => { swipeStartY = null; });
 
 function gauss(){
   return (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2;
@@ -338,13 +341,13 @@ function buildLines(){
   for (let i = 0; i < n; i++){
     let ax, ay, bx, by;
     if (vertical){
-      // gleichmäßig über die Breite verteilt, unten Platz für die Caption
-      const x = W / (n + 1) * (i + 1);
-      ax = x; bx = x; ay = H * 0.05; by = H * 0.86;
+      // kurze Lines (~4,5 cm) mittig, gleichmäßig über die Breite verteilt
+      const x   = W / (n + 1) * (i + 1);
+      const len = Math.min(H * 0.5, 175);   // 175 CSS-px ≈ 4,6 cm
+      ax = x; bx = x; ay = (H - len) / 2; by = ay + len;
     } else {
-      // Linien in die oberen ~90 % legen, damit die Caption unten frei bleibt
-      const spacing = (H * 0.9) / (n + 1);
-      const y = spacing * (i + 1) + H * 0.015;
+      const spacing = H / (n + 1);
+      const y = spacing * (i + 1);
       ax = W * 0.06; bx = W * 0.94; ay = y; by = y;
     }
 
@@ -459,6 +462,8 @@ function frame(now){
     doneFlag = true;
     overlay.classList.add('done');
     if (navigator.vibrate) navigator.vibrate(120);
+    // Wisch-Hinweis kurz zeigen, dann ausblenden
+    hintTimer = setTimeout(() => document.getElementById('swipeHint').classList.add('fade'), 2600);
   }
   raf = requestAnimationFrame(frame);  // Schimmer läuft endlos weiter
 }
@@ -466,6 +471,8 @@ function frame(now){
 function openOverlay(){
   overlay.classList.add('open');
   overlay.classList.remove('done');
+  clearTimeout(hintTimer);
+  document.getElementById('swipeHint').classList.remove('fade');
   doneFlag = false;
   if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 180]);
 
@@ -481,6 +488,7 @@ function openOverlay(){
 function closeOverlay(){
   if (!overlay.classList.contains('open')) return;
   overlay.classList.remove('open', 'done');
+  clearTimeout(hintTimer);
   if (raf) cancelAnimationFrame(raf);
   raf = null;
   try{ wakeLock?.release(); }catch{}
