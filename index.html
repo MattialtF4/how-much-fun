@@ -285,7 +285,8 @@
   .tool.show{display:block}
   /* Gartenzwerg-Helfer: kommt von oben, Strohhalm zieht die Line weg */
   .gnome{
-    position:absolute;left:50%;width:100vw;
+    /* groß, damit der (dünne) Strohhalm die Line-Breite verdeckt */
+    position:absolute;left:50%;width:220vw;
     transform:translateX(-50%);
     display:none;pointer-events:none;z-index:6;
     filter:drop-shadow(0 0 22px rgba(0,0,0,.45));
@@ -1191,7 +1192,7 @@ function frame(now){
   // Gartenzwerg sinkt von oben, sein Strohhalm saugt die Line von oben weg.
   // Die Line endet exakt an der Halm-Spitze (Clip 4px darüber → verdeckt).
   if (helperMode === 'descend'){
-    if (!helperFinished){ gnomeY += H * 0.012; gnomeEl.style.top = gnomeY + 'px'; }
+    if (!helperFinished){ gnomeY += H * 0.018; gnomeEl.style.top = gnomeY + 'px'; }
     const strawTipY = gnomeY + GNOME_STRAW_TIP * gnomeH;
     const clearY = Math.min(H, strawTipY - 4);
     if (clearY > 0) ctx.clearRect(0, 0, W, clearY);
