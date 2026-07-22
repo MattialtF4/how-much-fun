@@ -227,7 +227,7 @@
   /* ---------- Line-Overlay ---------- */
   .overlay{
     position:fixed;inset:0;background:#000;z-index:100;display:none;
-    touch-action:none;
+    touch-action:none;overflow:hidden;
   }
   .overlay.open{display:block}
   .overlay canvas{position:absolute;inset:0;width:100%;height:100%}
@@ -268,14 +268,13 @@
     from{opacity:0;transform:translateY(-50%) scale(.6)}
     to{opacity:1;transform:translateY(-50%) scale(1)}
   }
-  .shovel{
-    /* 158vw Element → Klinge (58% der Grafik) ≈ 92vw Bildschirmbreite */
-    position:absolute;left:50%;width:158vw;
-    transform:translateX(-50%) rotate(180deg);
+  .tool{
+    /* Breite + Rotation werden je Werkzeug per JS gesetzt */
+    position:absolute;left:50%;
     display:none;pointer-events:none;z-index:6;
-    filter:drop-shadow(0 0 30px rgba(255,220,120,.35));
+    filter:drop-shadow(0 0 30px rgba(255,220,120,.30));
   }
-  .shovel.show{display:block}
+  .tool.show{display:block}
   .gold-btn{
     position:absolute;left:50%;transform:translateX(-50%);
     bottom:calc(70px + env(safe-area-inset-bottom));
@@ -324,6 +323,9 @@
   <div class="label">Ambiente</div>
   <div class="pill-row" id="bgRow"></div>
 
+  <div class="label">Werkzeug</div>
+  <div class="pill-row" id="toolRow"></div>
+
   <div class="label">Extras</div>
   <div class="switch-row" id="toggleRow"></div>
 
@@ -338,7 +340,7 @@
 <div class="overlay" id="overlay">
   <canvas id="cv"></canvas>
   <div class="count"><span id="countNum"></span></div>
-  <img class="shovel" id="shovelImg" src="shovel.png" alt="">
+  <img class="tool" id="toolImg" alt="">
   <div class="spruch" id="spruchEl"></div>
   <button class="gold-btn" id="goldBtn">🏆 Goldene Line ziehen</button>
   <div class="hint" id="swipeHint">Zum Beenden nach oben schieben</div>
@@ -372,6 +374,14 @@ const BGS = [
   { id:'sterne', name:'✦ Sterne' },
   { id:'nebel',  name:'Nebel' },
 ];
+// Werkzeug zum Wegwischen der Lines. elemVW so gewählt, dass die
+// „schiebende" Kante ~92vw breit ist (so breit wie die Schaufelklinge).
+// rotate: Grafik so drehen, dass die Kante oben (nach oben schiebend) ist.
+// leadFrac: Anteil der Element-Höhe vom oberen Rand bis zur Vorderkante.
+const TOOLS = [
+  { id:'schieber',    name:'❄️ Schieber',    src:'shovel.png', elemVW:158, rotate:180, leadFrac:0.045 },
+  { id:'staubsauger', name:'🌀 Staubsauger', src:'vacuum.png', elemVW:286, rotate:0,   leadFrac:0.044 },
+];
 
 const saved = load();
 let people = Math.min(8, Math.max(1, saved.people ?? 2));
@@ -382,15 +392,17 @@ let musicSync = saved.music ?? false;
 let goldOn    = saved.gold  ?? false;
 let styleId   = STYLES.some(s => s.id === saved.style) ? saved.style : 'classic';
 let bgId      = BGS.some(b => b.id === saved.bg) ? saved.bg : 'none';
+let toolId    = TOOLS.some(t => t.id === saved.tool) ? saved.tool : 'schieber';
 let customHex = /^#[0-9a-fA-F]{6}$/.test(saved.customHex || '') ? saved.customHex : '#00E5FF';
 
 function persist(){
   localStorage.setItem(LS_KEY, JSON.stringify({
     people, color: colorId, fun,
     sound: soundOn, music: musicSync, gold: goldOn,
-    style: styleId, bg: bgId, customHex,
+    style: styleId, bg: bgId, tool: toolId, customHex,
   }));
 }
+function currentTool(){ return TOOLS.find(t => t.id === toolId) || TOOLS[0]; }
 function currentColor(){
   if (colorId === 'custom') return { id:'custom', hex: customHex, name:'Eigene Farbe' };
   return COLORS.find(c => c.id === colorId);
@@ -459,6 +471,7 @@ function buildPills(rowId, items, onPick){
 }
 buildPills('styleRow', STYLES, id => { styleId = id; });
 buildPills('bgRow',    BGS,    id => { bgId = id; });
+buildPills('toolRow',  TOOLS,  id => { toolId = id; });
 
 // Extras-Toggles
 const TOGGLES = [
@@ -535,6 +548,8 @@ function renderSetup(){
     b.classList.toggle('active', b.dataset.id === styleId));
   document.querySelectorAll('#bgRow .pill').forEach(b =>
     b.classList.toggle('active', b.dataset.id === bgId));
+  document.querySelectorAll('#toolRow .pill').forEach(b =>
+    b.classList.toggle('active', b.dataset.id === toolId));
   document.querySelectorAll('#toggleRow .switch-card').forEach(b =>
     b.classList.toggle('on', TOGGLES.find(t => t.id === b.dataset.id).get()));
   renderRounds();
@@ -727,22 +742,27 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay
 
 // Beenden per Schieber: Hochwischen fährt die Schaufel mit dem Finger hoch
 // und schiebt die Lines weg (Escape bleibt als Desktop-Fallback)
-const shovelEl = document.getElementById('shovelImg');
-let dragY0 = null, wipeY = null, wipeMode = null, wipeFinished = false, shovLead = 0;
-// Anteil der Element-Höhe vom oberen Rand bis zur goldenen Klingenkante
-// (Grafik hat oben/unten ~4,5% transparenten Rand). So sitzt die Kante exakt am Finger.
-const SHOVEL_LEAD_FRAC = 0.045;
+const toolEl = document.getElementById('toolImg');
+let dragY0 = null, wipeY = null, wipeMode = null, wipeFinished = false, toolLead = 0, curLeadFrac = 0.045;
 
-function ensureShovelMetrics(){
-  shovelEl.classList.add('show');
-  const h = shovelEl.offsetHeight || (shovelEl.offsetWidth * 896 / 500);
-  shovLead = SHOVEL_LEAD_FRAC * h;
+// Werkzeug-Grafik + Größe/Rotation setzen (in openOverlay aufgerufen)
+function applyTool(){
+  const t = currentTool();
+  if (!toolEl.src.endsWith(t.src)) toolEl.src = t.src;
+  toolEl.style.width = t.elemVW + 'vw';
+  toolEl.style.transform = `translateX(-50%) rotate(${t.rotate}deg)`;
+  curLeadFrac = t.leadFrac;
 }
-function placeShovel(y){ shovelEl.style.top = (y - shovLead) + 'px'; }
+function ensureToolMetrics(){
+  toolEl.classList.add('show');
+  const h = toolEl.offsetHeight || (toolEl.offsetWidth * 1.792);
+  toolLead = curLeadFrac * h;
+}
+function placeTool(y){ toolEl.style.top = (y - toolLead) + 'px'; }
 
 function resetWipe(){
   dragY0 = null; wipeY = null; wipeMode = null; wipeFinished = false;
-  shovelEl.classList.remove('show');
+  toolEl.classList.remove('show');
   document.getElementById('spruchEl').classList.remove('big');
 }
 
@@ -754,9 +774,9 @@ overlay.addEventListener('pointerdown', e => {
 overlay.addEventListener('pointermove', e => {
   if (dragY0 === null || wipeMode === 'complete') return;
   if (wipeY === null && dragY0 - e.clientY < 12) return;   // erst ab kleinem Zug
-  if (wipeMode !== 'drag'){ wipeMode = 'drag'; ensureShovelMetrics(); }
+  if (wipeMode !== 'drag'){ wipeMode = 'drag'; ensureToolMetrics(); }
   wipeY = Math.min(H, e.clientY);
-  placeShovel(wipeY);
+  placeTool(wipeY);
 });
 overlay.addEventListener('pointerup', e => {
   if (dragY0 === null) return;
@@ -1062,10 +1082,10 @@ function frame(now){
   if (wipeY !== null){
     if (wipeMode === 'complete'){
       wipeY += (-H * 0.25 - wipeY) * 0.22;
-      placeShovel(wipeY);
+      placeTool(wipeY);
       if (wipeY < -H * 0.12 && !wipeFinished){
         wipeFinished = true;
-        shovelEl.classList.remove('show');
+        toolEl.classList.remove('show');
         document.getElementById('spruchEl').classList.add('big');
         showSpruch(SPRUECHE[(Math.random() * SPRUECHE.length) | 0], 2000);
         if (navigator.vibrate) navigator.vibrate(60);
@@ -1073,10 +1093,10 @@ function frame(now){
       }
     } else if (wipeMode === 'cancel'){
       wipeY += (H + 140 - wipeY) * 0.25;
-      placeShovel(wipeY);
+      placeTool(wipeY);
       if (wipeY > H + 120){
         wipeY = null; wipeMode = null;
-        shovelEl.classList.remove('show');
+        toolEl.classList.remove('show');
       }
     }
     if (wipeY !== null){
@@ -1109,6 +1129,7 @@ function openOverlay(){
   document.getElementById('spruchEl').classList.remove('show');
   document.getElementById('goldBtn').classList.remove('show');
   resetWipe();
+  applyTool();   // gewähltes Werkzeug (Grafik + Größe/Rotation) vorbereiten
   audio();   // AudioContext in der User-Geste anlegen/aufwecken (iOS)
   if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 180]);
 

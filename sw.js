@@ -1,8 +1,8 @@
 'use strict';
 // Offline-Cache: network-first für die Seite (Deploy wird nie stale),
 // cache-first für statische Assets (Icons).
-const CACHE = 'hmf-v2';
-const ASSETS = ['icon.png', 'icon.svg', 'shovel.png'];
+const CACHE = 'hmf-v3';
+const ASSETS = ['icon.png', 'icon.svg', 'shovel.png', 'vacuum.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
