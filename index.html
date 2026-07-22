@@ -257,6 +257,22 @@
     opacity:0;transition:opacity .9s ease;
   }
   .spruch.show{opacity:1}
+  .spruch.big{
+    top:50%;bottom:auto;transform:translateY(-50%);
+    font-size:22px;letter-spacing:.04em;transition:none;
+  }
+  .spruch.big.show{animation:spruchPop .5s cubic-bezier(.2,1.4,.4,1) both}
+  @keyframes spruchPop{
+    from{opacity:0;transform:translateY(-50%) scale(.6)}
+    to{opacity:1;transform:translateY(-50%) scale(1)}
+  }
+  .shovel{
+    position:absolute;left:50%;width:min(62vw, 280px);
+    transform:translateX(-50%) rotate(180deg);
+    display:none;pointer-events:none;z-index:6;
+    filter:drop-shadow(0 0 30px rgba(255,220,120,.35));
+  }
+  .shovel.show{display:block}
   .gold-btn{
     position:absolute;left:50%;transform:translateX(-50%);
     bottom:calc(70px + env(safe-area-inset-bottom));
@@ -319,9 +335,10 @@
 <div class="overlay" id="overlay">
   <canvas id="cv"></canvas>
   <div class="count"><span id="countNum"></span></div>
+  <img class="shovel" id="shovelImg" src="shovel.png" alt="">
   <div class="spruch" id="spruchEl"></div>
   <button class="gold-btn" id="goldBtn">🏆 Goldene Line ziehen</button>
-  <div class="hint" id="swipeHint">Zum Beenden nach oben wischen</div>
+  <div class="hint" id="swipeHint">Zum Beenden nach oben schieben</div>
 </div>
 
 <script>
@@ -699,19 +716,52 @@ document.getElementById('goldBtn').addEventListener('click', e => {
   document.getElementById('goldBtn').classList.remove('show');
   startRoulette();
 });
+document.getElementById('goldBtn').addEventListener('pointerdown', e => e.stopPropagation());
 let W = 0, H = 0, filterOK = true;
 
 document.getElementById('goBtn').addEventListener('click', openOverlay);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });
 
-// Beenden per Wisch nach oben (Escape bleibt als Desktop-Fallback)
-let swipeStartY = null;
-overlay.addEventListener('pointerdown', e => { swipeStartY = e.clientY; });
-overlay.addEventListener('pointerup', e => {
-  if (swipeStartY !== null && swipeStartY - e.clientY > 70) closeOverlay();
-  swipeStartY = null;
+// Beenden per Schieber: Hochwischen fährt die Schaufel mit dem Finger hoch
+// und schiebt die Lines weg (Escape bleibt als Desktop-Fallback)
+const shovelEl = document.getElementById('shovelImg');
+let dragY0 = null, wipeY = null, wipeMode = null, wipeFinished = false;
+
+function resetWipe(){
+  dragY0 = null; wipeY = null; wipeMode = null; wipeFinished = false;
+  shovelEl.classList.remove('show');
+  document.getElementById('spruchEl').classList.remove('big');
+}
+
+overlay.addEventListener('pointerdown', e => {
+  if (wipeMode === 'complete') return;
+  dragY0 = e.clientY;
+  try{ overlay.setPointerCapture(e.pointerId); }catch{}
 });
-overlay.addEventListener('pointercancel', () => { swipeStartY = null; });
+overlay.addEventListener('pointermove', e => {
+  if (dragY0 === null || wipeMode === 'complete') return;
+  if (wipeY === null && dragY0 - e.clientY < 12) return;   // erst ab kleinem Zug
+  wipeMode = 'drag';
+  wipeY = Math.min(H, e.clientY);
+  shovelEl.style.top = wipeY + 'px';
+  shovelEl.classList.add('show');
+});
+overlay.addEventListener('pointerup', e => {
+  if (dragY0 === null) return;
+  const dy = dragY0 - e.clientY;
+  dragY0 = null;
+  if (wipeMode !== 'drag') return;
+  if (wipeY < H * 0.45 || dy > H * 0.4){
+    wipeMode = 'complete';                     // Schaufel fährt den Rest hoch
+    if (navigator.vibrate) navigator.vibrate(40);
+  } else {
+    wipeMode = 'cancel';                       // zu kurz → Schaufel fährt zurück
+  }
+});
+overlay.addEventListener('pointercancel', () => {
+  dragY0 = null;
+  if (wipeMode === 'drag') wipeMode = 'cancel';
+});
 
 function gauss(){
   return (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2;
@@ -993,6 +1043,33 @@ function frame(now){
     }
   }
 
+  // Schieber-Wisch: unterhalb der Schaufelkante ist alles weggeschoben
+  if (wipeY !== null){
+    if (wipeMode === 'complete'){
+      wipeY += (-H * 0.25 - wipeY) * 0.22;
+      shovelEl.style.top = wipeY + 'px';
+      if (wipeY < -H * 0.12 && !wipeFinished){
+        wipeFinished = true;
+        shovelEl.classList.remove('show');
+        document.getElementById('spruchEl').classList.add('big');
+        showSpruch(SPRUECHE[(Math.random() * SPRUECHE.length) | 0], 2000);
+        if (navigator.vibrate) navigator.vibrate(60);
+        countTimers.push(setTimeout(closeOverlay, 2400));
+      }
+    } else if (wipeMode === 'cancel'){
+      wipeY += (H + 140 - wipeY) * 0.25;
+      shovelEl.style.top = wipeY + 'px';
+      if (wipeY > H + 120){
+        wipeY = null; wipeMode = null;
+        shovelEl.classList.remove('show');
+      }
+    }
+    if (wipeY !== null){
+      const y = Math.max(0, wipeY);
+      ctx.clearRect(0, y, W, H - y);
+    }
+  }
+
   if (allDone && !doneFlag){
     doneFlag = true;
     overlay.classList.add('done');
@@ -1000,7 +1077,6 @@ function frame(now){
     sPing();
     session.rounds++; saveSession(); renderRounds();
     if (goldOn && lines.length >= 2) document.getElementById('goldBtn').classList.add('show');
-    else showSpruch(SPRUECHE[(Math.random() * SPRUECHE.length) | 0]);
     // Wisch-Hinweis kurz zeigen, dann ausblenden
     hintTimer = setTimeout(() => document.getElementById('swipeHint').classList.add('fade'), 2600);
   }
@@ -1017,6 +1093,7 @@ function openOverlay(){
   clearTimeout(spruchTimer);
   document.getElementById('spruchEl').classList.remove('show');
   document.getElementById('goldBtn').classList.remove('show');
+  resetWipe();
   audio();   // AudioContext in der User-Geste anlegen/aufwecken (iOS)
   if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 180]);
 
@@ -1058,6 +1135,7 @@ function closeOverlay(){
   clearTimeout(spruchTimer);
   document.getElementById('spruchEl').classList.remove('show');
   document.getElementById('goldBtn').classList.remove('show');
+  resetWipe();
   stopMusicSync();
   if (raf) cancelAnimationFrame(raf);
   raf = null;
