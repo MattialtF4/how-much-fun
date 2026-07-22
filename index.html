@@ -954,12 +954,14 @@ function drawGlow(line, eased, t, i){
   // Farbiger Schimmer: viele hauchdünne additive Schichten von breit nach
   // schmal → weicher Verlauf ganz ohne sichtbare Kanten.
   // Doppel-Line: ein gemeinsamer, etwas breiterer Glow um beide Kerne.
-  const PASSES = 14;
-  const maxW = (34 * line.thick + line.halfGap * 4) * widthBoost;
+  const PASSES = 18;
+  const maxW = (64 * line.thick + line.halfGap * 4) * widthBoost;
   ctx.strokeStyle = style;
   for (let s = 1; s <= PASSES; s++){
-    ctx.lineWidth = maxW * s / PASSES;
-    ctx.globalAlpha = pulse * 0.05;
+    // innere Schichten heller (Kern der Farbe), äußere zart → breiter Halo
+    const f = s / PASSES;
+    ctx.lineWidth = maxW * f;
+    ctx.globalAlpha = pulse * (0.055 + 0.05 * (1 - f));
     linePath(line, eased); ctx.stroke();
   }
 
