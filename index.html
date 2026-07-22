@@ -269,7 +269,8 @@
     to{opacity:1;transform:translateY(-50%) scale(1)}
   }
   .shovel{
-    position:absolute;left:50%;width:90vw;
+    /* 158vw Element → Klinge (58% der Grafik) ≈ 92vw Bildschirmbreite */
+    position:absolute;left:50%;width:158vw;
     transform:translateX(-50%) rotate(180deg);
     display:none;pointer-events:none;z-index:6;
     filter:drop-shadow(0 0 30px rgba(255,220,120,.35));
@@ -727,7 +728,17 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay
 // Beenden per Schieber: Hochwischen fährt die Schaufel mit dem Finger hoch
 // und schiebt die Lines weg (Escape bleibt als Desktop-Fallback)
 const shovelEl = document.getElementById('shovelImg');
-let dragY0 = null, wipeY = null, wipeMode = null, wipeFinished = false;
+let dragY0 = null, wipeY = null, wipeMode = null, wipeFinished = false, shovLead = 0;
+// Anteil der Element-Höhe vom oberen Rand bis zur goldenen Klingenkante
+// (Grafik hat oben/unten ~4,5% transparenten Rand). So sitzt die Kante exakt am Finger.
+const SHOVEL_LEAD_FRAC = 0.045;
+
+function ensureShovelMetrics(){
+  shovelEl.classList.add('show');
+  const h = shovelEl.offsetHeight || (shovelEl.offsetWidth * 896 / 500);
+  shovLead = SHOVEL_LEAD_FRAC * h;
+}
+function placeShovel(y){ shovelEl.style.top = (y - shovLead) + 'px'; }
 
 function resetWipe(){
   dragY0 = null; wipeY = null; wipeMode = null; wipeFinished = false;
@@ -743,10 +754,9 @@ overlay.addEventListener('pointerdown', e => {
 overlay.addEventListener('pointermove', e => {
   if (dragY0 === null || wipeMode === 'complete') return;
   if (wipeY === null && dragY0 - e.clientY < 12) return;   // erst ab kleinem Zug
-  wipeMode = 'drag';
+  if (wipeMode !== 'drag'){ wipeMode = 'drag'; ensureShovelMetrics(); }
   wipeY = Math.min(H, e.clientY);
-  shovelEl.style.top = wipeY + 'px';
-  shovelEl.classList.add('show');
+  placeShovel(wipeY);
 });
 overlay.addEventListener('pointerup', e => {
   if (dragY0 === null) return;
@@ -1045,11 +1055,12 @@ function frame(now){
     }
   }
 
-  // Schieber-Wisch: unterhalb der Schaufelkante ist alles weggeschoben
+  // Schieber-Wisch: die goldene Klingenkante sitzt bei wipeY, alles darunter
+  // ist weggeschoben. Kleiner Überlappungs-Clip → garantiert kein Spalt.
   if (wipeY !== null){
     if (wipeMode === 'complete'){
       wipeY += (-H * 0.25 - wipeY) * 0.22;
-      shovelEl.style.top = wipeY + 'px';
+      placeShovel(wipeY);
       if (wipeY < -H * 0.12 && !wipeFinished){
         wipeFinished = true;
         shovelEl.classList.remove('show');
@@ -1060,14 +1071,14 @@ function frame(now){
       }
     } else if (wipeMode === 'cancel'){
       wipeY += (H + 140 - wipeY) * 0.25;
-      shovelEl.style.top = wipeY + 'px';
+      placeShovel(wipeY);
       if (wipeY > H + 120){
         wipeY = null; wipeMode = null;
         shovelEl.classList.remove('show');
       }
     }
     if (wipeY !== null){
-      const y = Math.max(0, wipeY);
+      const y = Math.max(0, wipeY + 6);   // 6px unter die Kante → Lines enden verdeckt
       ctx.clearRect(0, y, W, H - y);
     }
   }
