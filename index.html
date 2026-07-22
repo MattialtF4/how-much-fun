@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#060608">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<title>How much fun?</title>
+<style>
+  :root{
+    --bg:#060608;
+    --surface:#131318;
+    --surface-2:#1B1B22;
+    --border:#26262E;
+    --text:#F4F4F6;
+    --text-dim:#9C9CAB;
+    --text-mute:#5F5F6E;
+    --accent:#FF2E9A; /* wird per JS gesetzt */
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    background-image:
+      radial-gradient(60vmax 60vmax at 85% -10%, rgba(180,77,255,.10), transparent 60%),
+      radial-gradient(55vmax 55vmax at -10% 105%, rgba(46,168,255,.08), transparent 60%);
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none;
+    touch-action:manipulation;
+  }
+  .app{
+    max-width:430px;margin:0 auto;min-height:100%;
+    padding:calc(34px + env(safe-area-inset-top)) 22px calc(30px + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;
+  }
+
+  /* ---------- Titel ---------- */
+  .kicker{
+    font-size:12px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;
+    color:var(--text-mute);margin-bottom:10px;
+  }
+  h1.title{
+    font-size:clamp(40px, 12vw, 52px);font-weight:800;line-height:1.04;letter-spacing:-.02em;
+    background:linear-gradient(95deg,#fff 5%, var(--accent) 45%, #fff 85%);
+    background-size:220% 100%;
+    -webkit-background-clip:text;background-clip:text;
+    color:transparent;
+    animation:sheen 5s linear infinite;
+    margin-bottom:34px;
+  }
+  body.rainbow h1.title{
+    background-image:linear-gradient(95deg,#FF5E5E,#FFC64D,#D4FF3F,#2EA8FF,#B44DFF,#FF2E9A,#FF5E5E);
+  }
+  @keyframes sheen{to{background-position:220% 0}}
+
+  /* ---------- Sections ---------- */
+  .label{
+    font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--text-mute);margin:0 0 12px;
+  }
+
+  /* ---------- Spaß-Slider ---------- */
+  .fun-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+  .fun-value{font-size:13px;font-weight:700;color:var(--text);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+  input[type=range].fun{
+    -webkit-appearance:none;appearance:none;width:100%;height:36px;
+    background:transparent;margin-bottom:26px;cursor:pointer;
+  }
+  input[type=range].fun::-webkit-slider-runnable-track{
+    height:6px;border-radius:99px;border:1px solid var(--border);
+    background:
+      linear-gradient(var(--surface-2),var(--surface-2)) no-repeat right / calc(100% - var(--fill,50%)) 100%,
+      linear-gradient(90deg, color-mix(in srgb, var(--accent) 35%, #1B1B22), var(--accent));
+  }
+  input[type=range].fun::-webkit-slider-thumb{
+    -webkit-appearance:none;width:26px;height:26px;border-radius:50%;border:none;
+    background:var(--accent);margin-top:-11px;
+    box-shadow:0 0 16px color-mix(in srgb, var(--accent) 70%, transparent), inset 0 0 0 2px rgba(0,0,0,.25);
+  }
+  body.rainbow input[type=range].fun::-webkit-slider-runnable-track{
+    background:
+      linear-gradient(var(--surface-2),var(--surface-2)) no-repeat right / calc(100% - var(--fill,50%)) 100%,
+      linear-gradient(90deg,#FF5E5E,#FFC64D,#D4FF3F,#2EA8FF,#B44DFF,#FF2E9A);
+  }
+  body.rainbow input[type=range].fun::-webkit-slider-thumb{
+    background:#fff;
+    box-shadow:0 0 16px rgba(255,255,255,.65), inset 0 0 0 2px rgba(0,0,0,.15);
+  }
+
+  /* ---------- Personen-Chips ---------- */
+  .people-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:30px}
+  .people-grid button{
+    aspect-ratio:1;border-radius:18px;cursor:pointer;
+    background:var(--surface);border:1px solid var(--border);color:var(--text-dim);
+    font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;
+    transition:transform .12s ease, border-color .15s, color .15s, box-shadow .2s;
+  }
+  .people-grid button:active{transform:scale(.94)}
+  .people-grid button.active{
+    color:var(--text);border-color:var(--accent);
+    background:color-mix(in srgb, var(--accent) 10%, var(--surface));
+    box-shadow:0 0 18px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  body.rainbow .people-grid button.active{
+    border-color:transparent;
+    background:
+      linear-gradient(var(--surface-2),var(--surface-2)) padding-box,
+      linear-gradient(120deg,#FF5E5E,#FFC64D,#D4FF3F,#2EA8FF,#B44DFF,#FF2E9A) border-box;
+    border:2px solid transparent;
+    box-shadow:0 0 20px rgba(180,77,255,.35);
+  }
+
+  /* ---------- Farb-Chips ---------- */
+  .color-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+  .color-chip{
+    width:46px;height:46px;border-radius:50%;cursor:pointer;border:none;
+    transition:transform .12s ease, box-shadow .2s;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);
+  }
+  .color-chip:active{transform:scale(.9)}
+  .color-chip.rainbow{
+    background:conic-gradient(from 210deg,#FF5E5E,#FFC64D,#D4FF3F,#2EA8FF,#B44DFF,#FF2E9A,#FF5E5E);
+  }
+  .color-chip.active{
+    box-shadow:
+      0 0 0 3px var(--bg),
+      0 0 0 5.5px var(--chip, #fff),
+      0 0 22px var(--chip, rgba(255,255,255,.6));
+    transform:scale(1.06);
+  }
+  .color-name{font-size:13px;color:var(--text-dim);min-height:18px;margin-bottom:26px}
+  .color-name strong{color:var(--text);font-weight:700}
+
+  /* ---------- Go-Button ---------- */
+  .go-wrap{margin-top:auto;padding-top:18px}
+  .go-btn{
+    width:100%;border:none;border-radius:999px;padding:20px;cursor:pointer;
+    font-size:18px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:#0B0B0F;background:var(--accent);
+    box-shadow:0 0 26px color-mix(in srgb, var(--accent) 50%, transparent),
+               0 0 70px color-mix(in srgb, var(--accent) 22%, transparent);
+    animation:pulse 2.2s ease-in-out infinite;
+    transition:transform .12s ease;
+  }
+  .go-btn:active{transform:scale(.97)}
+  @keyframes pulse{
+    0%,100%{box-shadow:0 0 26px color-mix(in srgb, var(--accent) 50%, transparent),0 0 70px color-mix(in srgb, var(--accent) 22%, transparent)}
+    50%{box-shadow:0 0 40px color-mix(in srgb, var(--accent) 80%, transparent),0 0 100px color-mix(in srgb, var(--accent) 35%, transparent)}
+  }
+  body.rainbow .go-btn{
+    background:linear-gradient(100deg,#FF5E5E,#FFC64D,#D4FF3F,#2EA8FF,#B44DFF,#FF2E9A,#FF5E5E);
+    background-size:300% 100%;
+    animation:pulse-rb 2.2s ease-in-out infinite, flow 6s linear infinite;
+  }
+  @keyframes flow{to{background-position:300% 0}}
+  @keyframes pulse-rb{
+    0%,100%{box-shadow:0 0 26px rgba(255,46,154,.4),0 0 70px rgba(46,168,255,.25)}
+    50%{box-shadow:0 0 42px rgba(255,46,154,.65),0 0 110px rgba(46,168,255,.4)}
+  }
+
+  /* ---------- Line-Overlay ---------- */
+  .overlay{
+    position:fixed;inset:0;background:#000;z-index:100;display:none;
+  }
+  .overlay.open{display:block}
+  .overlay canvas{position:absolute;inset:0;width:100%;height:100%}
+  .caption{
+    position:absolute;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom));
+    text-align:center;pointer-events:none;
+    opacity:0;transform:translateY(8px);
+    transition:opacity .8s ease, transform .8s ease;
+  }
+  .overlay.done .caption{opacity:1;transform:translateY(0)}
+  .caption h2{
+    font-size:20px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:#fff;
+    text-shadow:0 0 20px rgba(255,255,255,.45);
+  }
+  .caption p{margin-top:5px;font-size:14px;color:rgba(255,255,255,.6);letter-spacing:.08em}
+  .caption small{display:block;margin-top:14px;font-size:11px;color:rgba(255,255,255,.3);letter-spacing:.16em;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<!-- ============ Setup ============ -->
+<div class="app" id="setupView">
+  <div class="kicker">⚡ Energy Sniff</div>
+  <h1 class="title">How much<br>fun?</h1>
+
+  <div class="fun-row">
+    <div class="label" style="margin:0">Wie viel Spaß?</div>
+    <div class="fun-value" id="funValue"></div>
+  </div>
+  <input type="range" class="fun" id="funSlider" min="1" max="10" step="1" aria-label="Wie viel Spaß?">
+
+  <div class="label">Wie viele seid ihr?</div>
+  <div class="people-grid" id="peopleGrid"></div>
+
+  <div class="label">Schimmer</div>
+  <div class="color-row" id="colorRow"></div>
+  <div class="color-name" id="colorName"></div>
+
+  <div class="go-wrap">
+    <button class="go-btn" id="goBtn">⚡ Let's go</button>
+  </div>
+</div>
+
+<!-- ============ Overlay ============ -->
+<div class="overlay" id="overlay">
+  <canvas id="cv"></canvas>
+  <div class="caption">
+    <h2>Energy Sniff</h2>
+    <p>Die perfekte Line.</p>
+    <small>Tippen zum Beenden</small>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================= Settings ================= */
+const LS_KEY = 'hmf_settings';
+
+const COLORS = [
+  { id:'rainbow', name:'Regenbogen' },
+  { id:'pink',   hex:'#FF2E9A', name:'Neon-Pink' },
+  { id:'blue',   hex:'#2EA8FF', name:'Electric Blue' },
+  { id:'acid',   hex:'#D4FF3F', name:'Acid Green' },
+  { id:'gold',   hex:'#FFC64D', name:'Gold' },
+  { id:'violet', hex:'#B44DFF', name:'Violett' },
+];
+
+function load(){
+  try{ const v = JSON.parse(localStorage.getItem(LS_KEY)); return v ?? {}; }
+  catch{ return {}; }
+}
+const saved = load();
+let people = Math.min(8, Math.max(1, saved.people ?? 2));
+let colorId = COLORS.some(c => c.id === saved.color) ? saved.color : 'rainbow';
+let fun = Math.min(10, Math.max(1, saved.fun ?? 6));
+
+function persist(){ localStorage.setItem(LS_KEY, JSON.stringify({ people, color: colorId, fun })); }
+function currentColor(){ return COLORS.find(c => c.id === colorId); }
+
+/* ================= Setup-UI ================= */
+const peopleGrid = document.getElementById('peopleGrid');
+for (let n = 1; n <= 8; n++){
+  const b = document.createElement('button');
+  b.textContent = n;
+  b.dataset.n = n;
+  b.addEventListener('click', () => {
+    people = n; persist(); renderSetup();
+    if (navigator.vibrate) navigator.vibrate(15);
+  });
+  peopleGrid.appendChild(b);
+}
+
+const colorRow = document.getElementById('colorRow');
+for (const c of COLORS){
+  const b = document.createElement('button');
+  b.className = 'color-chip' + (c.id === 'rainbow' ? ' rainbow' : '');
+  b.dataset.id = c.id;
+  b.setAttribute('aria-label', c.name);
+  if (c.hex){ b.style.background = c.hex; b.style.setProperty('--chip', c.hex); }
+  else b.style.setProperty('--chip', '#fff');
+  b.addEventListener('click', () => {
+    colorId = c.id; persist(); renderSetup();
+    if (navigator.vibrate) navigator.vibrate(15);
+  });
+  colorRow.appendChild(b);
+}
+
+const FUN_LABELS = ['Chill','Chill','Warm-up','Warm-up','Party','Party','Rave','Rave','Eskalation','Eskalation 🚀'];
+const funSlider = document.getElementById('funSlider');
+funSlider.value = fun;
+funSlider.addEventListener('input', () => {
+  fun = +funSlider.value; persist(); renderSetup();
+});
+
+function renderSetup(){
+  document.getElementById('funValue').textContent = `${fun}/10 · ${FUN_LABELS[fun - 1]}`;
+  funSlider.style.setProperty('--fill', ((fun - 1) / 9 * 100) + '%');
+  document.querySelectorAll('#peopleGrid button').forEach(b =>
+    b.classList.toggle('active', +b.dataset.n === people));
+  document.querySelectorAll('.color-chip').forEach(b =>
+    b.classList.toggle('active', b.dataset.id === colorId));
+  const c = currentColor();
+  document.body.classList.toggle('rainbow', c.id === 'rainbow');
+  document.documentElement.style.setProperty('--accent', c.hex ?? '#FF2E9A');
+  document.getElementById('colorName').innerHTML = `<strong>${c.name}</strong>`;
+}
+renderSetup();
+
+/* ================= Overlay ================= */
+const overlay = document.getElementById('overlay');
+const canvas  = document.getElementById('cv');
+const ctx     = canvas.getContext('2d');
+
+const STAGGER  = 260;   // ms Versatz pro Linie
+const DURATION = 2000;  // ms Aufbau pro Linie
+
+let lines = [], openT = 0, raf = null, doneFlag = false, wakeLock = null;
+let W = 0, H = 0, filterOK = true;
+
+document.getElementById('goBtn').addEventListener('click', openOverlay);
+overlay.addEventListener('click', closeOverlay);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });
+
+function gauss(){
+  return (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2;
+}
+
+function sizeCanvas(){
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Canvas-Filter-Support (Safari < 18 kann kein ctx.filter)
+  ctx.filter = 'blur(2px)';
+  filterOK = ctx.filter !== 'none';
+  ctx.filter = 'none';
+}
+
+function buildLines(){
+  sizeCanvas();
+  lines = [];
+  const n = people;
+  const vertical = n <= 4;   // 1–4 Lines hochkant, ab 5 quer
+
+  // Spaß-Level 1–10 → Dicke: Glow-Breite, Streuung und Partikelgröße/-menge
+  const thick      = 0.65 + fun * 0.11;              // 0.76 (dünn) … 1.75 (fett)
+  const spreadCore = 1.4  + fun * 0.5;               // Kern-Streuung in px
+  const sizeF      = 0.85 + fun * 0.05;
+
+  for (let i = 0; i < n; i++){
+    let ax, ay, bx, by;
+    if (vertical){
+      // gleichmäßig über die Breite verteilt, unten Platz für die Caption
+      const x = W / (n + 1) * (i + 1);
+      ax = x; bx = x; ay = H * 0.05; by = H * 0.86;
+    } else {
+      // Linien in die oberen ~90 % legen, damit die Caption unten frei bleibt
+      const spacing = (H * 0.9) / (n + 1);
+      const y = spacing * (i + 1) + H * 0.015;
+      ax = W * 0.06; bx = W * 0.94; ay = y; by = y;
+    }
+
+    const len = Math.hypot(bx - ax, by - ay);
+    const perLine = Math.round(Math.min(2200, Math.max(500, len * 2.8 * sizeF)));
+
+    const particles = [];
+    for (let p = 0; p < perLine; p++){
+      const u = p / perLine;
+      const spread = Math.random() < 0.88 ? spreadCore : spreadCore * 3;  // dichter Kern + wenige Streuer
+      const along = gauss() * 1.5, ortho = gauss() * spread;
+      particles.push({
+        u,
+        x: ax + (bx - ax) * u + (vertical ? ortho : along),
+        y: ay + (by - ay) * u + (vertical ? along : ortho),
+        r: (0.5 + Math.random() * 1.3) * sizeF,
+        a: 0.35 + Math.random() * 0.65,
+      });
+    }
+    lines.push({ ax, ay, bx, by, thick, particles });
+  }
+}
+
+function linePath(line, eased){
+  ctx.beginPath();
+  ctx.moveTo(line.ax, line.ay);
+  ctx.lineTo(line.ax + (line.bx - line.ax) * eased, line.ay + (line.by - line.ay) * eased);
+}
+
+function shimmerStyle(line, t){
+  if (colorId !== 'rainbow') return currentColor().hex;
+  const grad = ctx.createLinearGradient(line.ax, line.ay, line.bx, line.by);
+  const base = (t * 55) % 360;
+  for (let s = 0; s <= 6; s++){
+    grad.addColorStop(s / 6, `hsl(${(base + s * 60) % 360} 100% 60%)`);
+  }
+  return grad;
+}
+
+function drawGlow(line, eased, t, i){
+  const pulse = colorId === 'rainbow'
+    ? 0.6 + 0.15 * Math.sin(t * 2.4 + i * 0.9)
+    : 0.5 + 0.28 * Math.sin(t * 2.4 + i * 0.9);
+  const style = shimmerStyle(line, t + i * 0.35);
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = style;
+
+  if (filterOK){
+    // äußerer weicher Schimmer + innerer hellerer Kern
+    ctx.filter = 'blur(16px)';
+    ctx.globalAlpha = pulse * 0.7;
+    ctx.lineWidth = 26 * line.thick;
+    linePath(line, eased); ctx.stroke();
+
+    ctx.filter = 'blur(6px)';
+    ctx.globalAlpha = pulse;
+    ctx.lineWidth = 9 * line.thick;
+    linePath(line, eased); ctx.stroke();
+    ctx.filter = 'none';
+  } else {
+    // Fallback ohne Canvas-Filter: shadowBlur
+    const base = (t * 55 + i * 40) % 360;
+    ctx.shadowColor = colorId === 'rainbow' ? `hsl(${base} 100% 60%)` : currentColor().hex;
+    ctx.shadowBlur = 26;
+    ctx.globalAlpha = pulse * 0.55;
+    ctx.lineWidth = 10 * line.thick;
+    linePath(line, eased); ctx.stroke();
+  }
+
+  // dezenter weißer Powder-Schein direkt an der Linie
+  ctx.filter = 'none';
+  ctx.shadowColor = 'rgba(255,255,255,.35)';
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = 'rgba(255,255,255,.05)';
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 12 * line.thick;
+  linePath(line, eased); ctx.stroke();
+  ctx.restore();
+}
+
+function drawParticles(line, eased){
+  ctx.fillStyle = '#fff';
+  for (const p of line.particles){
+    if (p.u > eased) break;
+    const fresh = eased < 1 && eased - p.u < 0.06;
+    ctx.globalAlpha = fresh ? 1 : p.a;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, fresh ? p.r * 1.6 : p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function frame(now){
+  if (!overlay.classList.contains('open')) return;
+  const t = (now - openT) / 1000;
+  ctx.clearRect(0, 0, W, H);
+
+  let allDone = true;
+  for (let i = 0; i < lines.length; i++){
+    const p = Math.min(1, Math.max(0, (now - openT - i * STAGGER) / DURATION));
+    if (p < 1) allDone = false;
+    if (p <= 0) continue;
+    const eased = 1 - Math.pow(1 - p, 2.2);
+    drawGlow(lines[i], eased, t, i);
+    drawParticles(lines[i], eased);
+  }
+
+  if (allDone && !doneFlag){
+    doneFlag = true;
+    overlay.classList.add('done');
+    if (navigator.vibrate) navigator.vibrate(120);
+  }
+  raf = requestAnimationFrame(frame);  // Schimmer läuft endlos weiter
+}
+
+function openOverlay(){
+  overlay.classList.add('open');
+  overlay.classList.remove('done');
+  doneFlag = false;
+  if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 180]);
+
+  // fire-and-forget: darf den Animationsstart nie blockieren
+  try{ document.documentElement.requestFullscreen?.()?.catch?.(() => {}); }catch{}
+  try{ navigator.wakeLock?.request('screen').then(wl => { wakeLock = wl; }).catch(() => {}); }catch{}
+
+  buildLines();
+  openT = performance.now();
+  raf = requestAnimationFrame(frame);
+}
+
+function closeOverlay(){
+  if (!overlay.classList.contains('open')) return;
+  overlay.classList.remove('open', 'done');
+  if (raf) cancelAnimationFrame(raf);
+  raf = null;
+  try{ wakeLock?.release(); }catch{}
+  wakeLock = null;
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+}
+
+window.addEventListener('resize', () => {
+  if (overlay.classList.contains('open')) buildLines();
+});
+document.addEventListener('visibilitychange', async () => {
+  if (!document.hidden && overlay.classList.contains('open')){
+    try{ wakeLock = await navigator.wakeLock?.request('screen'); }catch{}
+  }
+});
+</script>
+</body>
+</html>
