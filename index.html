@@ -339,19 +339,22 @@ function buildLines(){
   const sizeF      = 0.85 + fun * 0.05;
 
   for (let i = 0; i < n; i++){
+    // Länge hängt vom Spaß-Level ab: 3 cm (Stufe 1) bis 7 cm (Stufe 10)
+    const CM  = 96 / 2.54;   // CSS-px pro cm
+    const len = Math.min((vertical ? H : W) * 0.85, CM * (3 + (fun - 1) / 9 * 4));
+
     let ax, ay, bx, by;
     if (vertical){
-      // kurze Lines (~4,5 cm) mittig, gleichmäßig über die Breite verteilt
-      const x   = W / (n + 1) * (i + 1);
-      const len = Math.min(H * 0.5, 175);   // 175 CSS-px ≈ 4,6 cm
+      // mittig, gleichmäßig über die Breite verteilt
+      const x = W / (n + 1) * (i + 1);
       ax = x; bx = x; ay = (H - len) / 2; by = ay + len;
     } else {
+      // mittig, gleichmäßig über die Höhe verteilt
       const spacing = H / (n + 1);
       const y = spacing * (i + 1);
-      ax = W * 0.06; bx = W * 0.94; ay = y; by = y;
+      ax = (W - len) / 2; bx = ax + len; ay = y; by = y;
     }
 
-    const len = Math.hypot(bx - ax, by - ay);
     const perLine = Math.round(Math.min(2200, Math.max(500, len * 2.8 * sizeF)));
 
     const particles = [];
