@@ -339,9 +339,12 @@ function buildLines(){
   const sizeF      = 0.85 + fun * 0.05;
 
   for (let i = 0; i < n; i++){
-    // Länge hängt vom Spaß-Level ab: 3 cm (Stufe 1) bis 7 cm (Stufe 10)
-    const CM  = 96 / 2.54;   // CSS-px pro cm
-    const len = Math.min((vertical ? H : W) * 0.85, CM * (3 + (fun - 1) / 9 * 4));
+    // Länge: Stufe 1 bleibt kurz (113 px), Stufe 10 ≈ 6,5 echte cm.
+    // 1 echter cm ≈ 60 CSS-px auf iPhones (96/2.54 wären Desktop-CSS-cm — zu klein).
+    const LEN_MIN = 113;
+    const PX_CM   = 60;
+    const LEN_MAX = Math.min((vertical ? H : W) * 0.92, 6.5 * PX_CM);
+    const len     = LEN_MIN + (LEN_MAX - LEN_MIN) * (fun - 1) / 9;
 
     let ax, ay, bx, by;
     if (vertical){
