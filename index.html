@@ -283,6 +283,30 @@
     filter:drop-shadow(0 0 30px rgba(255,220,120,.30));
   }
   .tool.show{display:block}
+  /* Gartenzwerg-Helfer: kommt von oben, Strohhalm zieht die Line weg */
+  .gnome{
+    position:absolute;left:50%;width:100vw;
+    transform:translateX(-50%);
+    display:none;pointer-events:none;z-index:6;
+    filter:drop-shadow(0 0 22px rgba(0,0,0,.45));
+  }
+  .gnome.show{display:block}
+  .help-btn{
+    position:absolute;left:50%;transform:translateX(-50%);
+    bottom:calc(70px + env(safe-area-inset-bottom));
+    padding:14px 26px;border:none;border-radius:999px;cursor:pointer;
+    font-size:14px;font-weight:800;letter-spacing:.06em;
+    color:#0B1418;background:linear-gradient(100deg,#7FE7C4,#57C8FF);
+    box-shadow:0 0 22px rgba(87,200,255,.5);
+    display:none;
+    animation:pulse-help 2s ease-in-out infinite;
+  }
+  .help-btn.show{display:block}
+  .help-btn:active{transform:translateX(-50%) scale(.96)}
+  @keyframes pulse-help{
+    0%,100%{box-shadow:0 0 20px rgba(87,200,255,.45)}
+    50%{box-shadow:0 0 38px rgba(87,200,255,.78)}
+  }
   .gold-btn{
     position:absolute;left:50%;transform:translateX(-50%);
     bottom:calc(70px + env(safe-area-inset-bottom));
@@ -347,8 +371,10 @@
   <canvas id="cv"></canvas>
   <div class="count"><span id="countNum"></span></div>
   <img class="tool" id="toolImg" alt="">
+  <img class="gnome" id="gnomeImg" src="gnome.png" alt="">
   <div class="spruch" id="spruchEl"></div>
   <button class="gold-btn" id="goldBtn">🏆 Goldene Line ziehen</button>
+  <button class="help-btn" id="helpBtn">🧙 Brauchst du Hilfe?</button>
   <div class="hint" id="swipeHint">Zum Beenden nach oben schieben</div>
 </div>
 
@@ -777,13 +803,58 @@ function resetWipe(){
   document.getElementById('spruchEl').classList.remove('big');
 }
 
+/* ================= Gartenzwerg-Helfer (nur bei EINER Line) ================= */
+const gnomeEl = document.getElementById('gnomeImg');
+const GNOME_STRAW_TIP = 0.925;   // Anteil der Element-Höhe bis zur Strohhalm-Spitze
+let helperMode = null;           // null | 'count' | 'descend'
+let helperUsed = false, helperFinished = false, gnomeY = 0, gnomeH = 0, helpTimers = [];
+
+function resetHelper(){
+  helperMode = null; helperUsed = false; helperFinished = false; gnomeY = 0; gnomeH = 0;
+  helpTimers.forEach(clearTimeout); helpTimers = [];
+  gnomeEl.classList.remove('show');
+  document.getElementById('helpBtn').classList.remove('show');
+}
+
+function startHelper(){
+  if (helperMode) return;
+  document.getElementById('helpBtn').classList.remove('show');
+  helperUsed = true;
+  helperMode = 'count';
+  // Countdown 5 → 1, dann sinkt der Zwerg von oben herab
+  const numEl = document.getElementById('countNum');
+  helpTimers.forEach(clearTimeout); helpTimers = [];
+  const STEP = 650;
+  for (let k = 0; k < 5; k++){
+    const num = 5 - k;
+    helpTimers.push(setTimeout(() => {
+      numEl.textContent = num;
+      numEl.classList.remove('tick'); void numEl.offsetWidth; numEl.classList.add('tick');
+      if (navigator.vibrate) navigator.vibrate(30);
+      sTick(760 + num * 55);
+    }, k * STEP));
+  }
+  helpTimers.push(setTimeout(() => {
+    numEl.textContent = ''; numEl.classList.remove('tick');
+    gnomeEl.classList.add('show');
+    gnomeH = gnomeEl.offsetHeight || (gnomeEl.offsetWidth * 1147 / 640);
+    gnomeY = -GNOME_STRAW_TIP * gnomeH - 20;   // Strohhalm-Spitze knapp über dem oberen Rand
+    gnomeEl.style.top = gnomeY + 'px';
+    helperMode = 'descend';
+    if (navigator.vibrate) navigator.vibrate(50);
+  }, 5 * STEP));
+}
+
+document.getElementById('helpBtn').addEventListener('click', e => { e.stopPropagation(); startHelper(); });
+document.getElementById('helpBtn').addEventListener('pointerdown', e => e.stopPropagation());
+
 overlay.addEventListener('pointerdown', e => {
-  if (wipeMode === 'complete') return;
+  if (wipeMode === 'complete' || helperMode) return;
   dragY0 = e.clientY;
   try{ overlay.setPointerCapture(e.pointerId); }catch{}
 });
 overlay.addEventListener('pointermove', e => {
-  if (dragY0 === null || wipeMode === 'complete') return;
+  if (dragY0 === null || wipeMode === 'complete' || helperMode) return;
   if (wipeY === null && dragY0 - e.clientY < 12) return;   // erst ab kleinem Zug
   if (wipeMode !== 'drag'){ wipeMode = 'drag'; ensureToolMetrics(); }
   wipeY = Math.min(H, e.clientY);
@@ -863,13 +934,14 @@ function buildLines(){
     }
   }
 
-  // Spaß-Level 1–10 → Dicke: Glow-Breite, Streuung und Partikelgröße/-menge
-  const thick      = 0.65 + fun * 0.11;              // 0.76 (dünn) … 1.75 (fett)
-  const spreadCore = 1.4  + fun * 0.5;               // Kern-Streuung in px
-  const sizeF      = 0.85 + fun * 0.05;
+  // Spaß-Level 1–10 → Dicke: Glow-Breite, Streuung und Partikelgröße/-menge.
+  // Doppel-Line = EINE doppelt so dicke Line (kein Nebeneinander).
   const isDouble   = styleId === 'doppel';
   const isGlitzer  = styleId === 'glitzer';
-  const halfGap    = isDouble ? 3 + 2.5 * thick : 0; // halber Abstand der Doppel-Line
+  const thickMul   = isDouble ? 1.9 : 1;
+  const thick      = (0.65 + fun * 0.11) * thickMul;
+  const spreadCore = (1.4  + fun * 0.5) * thickMul;  // Kern-Streuung (breiter bei Doppel)
+  const sizeF      = (0.85 + fun * 0.05) * (isDouble ? 1.15 : 1);
 
   for (let i = 0; i < n; i++){
     // Länge: Stufe 1 bleibt kurz (113 px), Stufe 10 ≈ 6,5 echte cm.
@@ -892,8 +964,8 @@ function buildLines(){
     }
 
     // feinere, dichtere Körnchen (bei vielen Linien etwas reduziert für Performance)
-    const perLine = Math.round(Math.min(1800, Math.max(600, len * 4.2 * sizeF))
-      * (n > 4 ? 0.75 : 1) * (isGlitzer ? 1.4 : 1));
+    const perLine = Math.round(Math.min(2400, Math.max(600, len * 4.2 * sizeF))
+      * (n > 4 ? 0.75 : 1) * (isGlitzer ? 1.4 : 1) * (isDouble ? 1.5 : 1));
 
     const particles = [];
     for (let p = 0; p < perLine; p++){
@@ -901,7 +973,7 @@ function buildLines(){
       const taper = prof(u);   // Mitte dicker, Enden schmal
       const spread = (Math.random() < 0.88 ? spreadCore : spreadCore * 3) * taper;
       const along = gauss() * 1.5;
-      const ortho = gauss() * spread + (isDouble ? (p % 2 ? halfGap : -halfGap) : 0);
+      const ortho = gauss() * spread;
       particles.push({
         u,
         x: ax + (bx - ax) * u + (vertical ? ortho : along),
@@ -912,7 +984,7 @@ function buildLines(){
         sprite: SPRITES[(Math.random() * SPRITES.length) | 0],
       });
     }
-    lines.push({ ax, ay, bx, by, thick, vertical, halfGap, isDouble, isGlitzer, particles });
+    lines.push({ ax, ay, bx, by, thick, vertical, isGlitzer, particles });
   }
 }
 
@@ -986,7 +1058,7 @@ function drawGlow(line, eased, t, i){
   // schmal → weicher Verlauf ganz ohne sichtbare Kanten.
   // Doppel-Line: ein gemeinsamer, etwas breiterer Glow um beide Kerne.
   const PASSES = 18;
-  const maxW = (64 * line.thick + line.halfGap * 4) * widthBoost;
+  const maxW = 64 * line.thick * widthBoost;
   ctx.strokeStyle = style;
   for (let s = 1; s <= PASSES; s++){
     // innere Schichten heller (Kern der Farbe), äußere zart → breiter Halo
@@ -996,16 +1068,13 @@ function drawGlow(line, eased, t, i){
     linePath(line, eased); ctx.stroke();
   }
 
-  // weißer Schein direkt am Powder-Kern (pro Sub-Linie), geht in die Farbe
-  // über — als gefüllte Form mit Taper (Mitte dicker, Enden schmal)
-  const offs = line.isDouble ? [-line.halfGap, line.halfGap] : [0];
+  // weißer Schein direkt am Powder-Kern, geht in die Farbe über —
+  // gefüllte Form mit Taper (Mitte dicker, Enden schmal)
   const wF = line.isGlitzer ? 1.3 : 1;
   ctx.fillStyle = '#fff';
-  for (const off of offs){
-    for (const wa of [[10, 0.10], [6, 0.14], [3.5, 0.20]]){
-      ctx.globalAlpha = wa[1] * pulse / offs.length * 1.4;
-      coreFill(line, eased, wa[0] * line.thick * wF, off);
-    }
+  for (const wa of [[10, 0.10], [6, 0.14], [3.5, 0.20]]){
+    ctx.globalAlpha = wa[1] * pulse * 1.4;
+    coreFill(line, eased, wa[0] * line.thick * wF, 0);
   }
   ctx.restore();
 }
@@ -1119,6 +1188,22 @@ function frame(now){
     }
   }
 
+  // Gartenzwerg sinkt von oben, sein Strohhalm saugt die Line von oben weg.
+  // Die Line endet exakt an der Halm-Spitze (Clip 4px darüber → verdeckt).
+  if (helperMode === 'descend'){
+    if (!helperFinished){ gnomeY += H * 0.012; gnomeEl.style.top = gnomeY + 'px'; }
+    const strawTipY = gnomeY + GNOME_STRAW_TIP * gnomeH;
+    const clearY = Math.min(H, strawTipY - 4);
+    if (clearY > 0) ctx.clearRect(0, 0, W, clearY);
+    if (strawTipY >= H * 0.9 && !helperFinished){
+      helperFinished = true;
+      document.getElementById('spruchEl').classList.add('big');
+      showSpruch(SPRUECHE[(Math.random() * SPRUECHE.length) | 0], 2200);
+      if (navigator.vibrate) navigator.vibrate(60);
+      helpTimers.push(setTimeout(closeOverlay, 2600));
+    }
+  }
+
   if (allDone && !doneFlag){
     doneFlag = true;
     overlay.classList.add('done');
@@ -1126,6 +1211,7 @@ function frame(now){
     sPing();
     session.rounds++; saveSession(); renderRounds();
     if (goldOn && lines.length >= 2) document.getElementById('goldBtn').classList.add('show');
+    else if (lines.length === 1) document.getElementById('helpBtn').classList.add('show');
     // Wisch-Hinweis kurz zeigen, dann ausblenden
     hintTimer = setTimeout(() => document.getElementById('swipeHint').classList.add('fade'), 2600);
   }
@@ -1143,6 +1229,7 @@ function openOverlay(){
   document.getElementById('spruchEl').classList.remove('show');
   document.getElementById('goldBtn').classList.remove('show');
   resetWipe();
+  resetHelper();
   applyTool();   // gewähltes Werkzeug (Grafik + Größe/Rotation) vorbereiten
   audio();   // AudioContext in der User-Geste anlegen/aufwecken (iOS)
   if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 180]);
@@ -1186,6 +1273,7 @@ function closeOverlay(){
   document.getElementById('spruchEl').classList.remove('show');
   document.getElementById('goldBtn').classList.remove('show');
   resetWipe();
+  resetHelper();
   stopMusicSync();
   if (raf) cancelAnimationFrame(raf);
   raf = null;
