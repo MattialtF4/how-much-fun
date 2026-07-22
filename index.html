@@ -37,23 +37,27 @@
   }
   .app{
     max-width:430px;margin:0 auto;min-height:100%;
-    padding:calc(34px + env(safe-area-inset-top)) 22px calc(30px + env(safe-area-inset-bottom));
+    padding:calc(18px + env(safe-area-inset-top)) 22px calc(20px + env(safe-area-inset-bottom));
     display:flex;flex-direction:column;
   }
 
-  /* ---------- Titel ---------- */
+  /* ---------- Kopf ---------- */
+  .head-row{
+    display:flex;align-items:baseline;justify-content:space-between;
+    margin-bottom:10px;
+  }
   .kicker{
-    font-size:12px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;
-    color:var(--text-mute);margin-bottom:10px;
+    font-size:11px;font-weight:700;letter-spacing:.28em;text-transform:uppercase;
+    color:var(--text-mute);
   }
   h1.title{
-    font-size:clamp(40px, 12vw, 52px);font-weight:800;line-height:1.04;letter-spacing:-.02em;
+    font-size:clamp(28px, 8.5vw, 34px);font-weight:800;line-height:1.05;letter-spacing:-.02em;
     background:linear-gradient(95deg,#fff 5%, var(--accent) 45%, #fff 85%);
     background-size:220% 100%;
     -webkit-background-clip:text;background-clip:text;
     color:transparent;
     animation:sheen 5s linear infinite;
-    margin-bottom:34px;
+    margin-bottom:16px;
   }
   body.rainbow h1.title{
     background-image:linear-gradient(95deg,#FF5E5E,#FFC64D,#D4FF3F,#2EA8FF,#B44DFF,#FF2E9A,#FF5E5E);
@@ -62,8 +66,8 @@
 
   /* ---------- Sections ---------- */
   .label{
-    font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--text-mute);margin:0 0 12px;
+    font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--text-mute);margin:0 0 8px;
   }
 
   /* ---------- Spaß-Slider ---------- */
@@ -71,7 +75,7 @@
   .fun-value{font-size:13px;font-weight:700;color:var(--text);letter-spacing:.04em;font-variant-numeric:tabular-nums}
   input[type=range].fun{
     -webkit-appearance:none;appearance:none;width:100%;height:36px;
-    background:transparent;margin-bottom:26px;cursor:pointer;
+    background:transparent;margin-bottom:16px;cursor:pointer;
   }
   input[type=range].fun::-webkit-slider-runnable-track{
     height:6px;border-radius:99px;border:1px solid var(--border);
@@ -94,12 +98,12 @@
     box-shadow:0 0 16px rgba(255,255,255,.65), inset 0 0 0 2px rgba(0,0,0,.15);
   }
 
-  /* ---------- Personen-Chips ---------- */
-  .people-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:30px}
+  /* ---------- Personen-Chips (rund, eine Reihe) ---------- */
+  .people-grid{display:flex;justify-content:space-between;margin-bottom:18px}
   .people-grid button{
-    aspect-ratio:1;border-radius:18px;cursor:pointer;
+    width:36px;height:36px;border-radius:50%;cursor:pointer;
     background:var(--surface);border:1px solid var(--border);color:var(--text-dim);
-    font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;
+    font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;
     transition:transform .12s ease, border-color .15s, color .15s, box-shadow .2s;
   }
   .people-grid button:active{transform:scale(.94)}
@@ -118,9 +122,9 @@
   }
 
   /* ---------- Farb-Chips ---------- */
-  .color-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+  .color-row{display:flex;justify-content:space-between;margin-bottom:18px}
   .color-chip{
-    width:46px;height:46px;border-radius:50%;cursor:pointer;border:none;
+    width:36px;height:36px;border-radius:50%;cursor:pointer;border:none;
     transition:transform .12s ease, box-shadow .2s;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);
   }
@@ -130,9 +134,9 @@
   }
   .color-chip.active{
     box-shadow:
-      0 0 0 3px var(--bg),
-      0 0 0 5.5px var(--chip, #fff),
-      0 0 22px var(--chip, rgba(255,255,255,.6));
+      0 0 0 2.5px var(--bg),
+      0 0 0 4.5px var(--chip, #fff),
+      0 0 18px var(--chip, rgba(255,255,255,.6));
     transform:scale(1.06);
   }
   .color-chip.custom{
@@ -140,16 +144,14 @@
       linear-gradient(var(--surface-2),var(--surface-2)) padding-box,
       conic-gradient(from 210deg,#FF5E5E,#FFC64D,#D4FF3F,#2EA8FF,#B44DFF,#FF2E9A,#FF5E5E) border-box;
     border:2px solid transparent;
-    display:grid;place-items:center;font-size:17px;line-height:1;
+    display:grid;place-items:center;font-size:15px;line-height:1;
   }
-  .color-name{font-size:13px;color:var(--text-dim);min-height:18px;margin-bottom:26px}
-  .color-name strong{color:var(--text);font-weight:700}
 
-  /* ---------- Pills (Stil / Ambiente / Toggles) ---------- */
-  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px}
+  /* ---------- Pills (Stil / Ambiente) ---------- */
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
   .pill{
     background:var(--surface);border:1px solid var(--border);color:var(--text-dim);
-    border-radius:999px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;
+    border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;
     transition:border-color .15s, color .15s, box-shadow .2s;
   }
   .pill:active{transform:scale(.96)}
@@ -159,19 +161,42 @@
     box-shadow:0 0 14px color-mix(in srgb, var(--accent) 35%, transparent);
   }
 
-  /* ---------- Runden-Zeile ---------- */
-  .rounds{
-    display:flex;gap:12px;align-items:baseline;
-    font-size:13px;color:var(--text-dim);margin:-24px 0 28px;
+  /* ---------- Extras: Switch-Karten ---------- */
+  .switch-row{display:flex;gap:8px;margin-bottom:16px}
+  .switch-card{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;
+    padding:10px 6px;cursor:pointer;color:var(--text-dim);
+    font-size:11.5px;font-weight:600;
+    transition:border-color .15s, color .15s;
   }
-  .rounds strong{color:var(--text);font-weight:700}
+  .switch-card:active{transform:scale(.97)}
+  .sc-switch{
+    width:40px;height:24px;border-radius:99px;position:relative;
+    background:var(--surface-2);border:1px solid var(--border);
+    transition:background .2s, border-color .2s;
+  }
+  .sc-switch::after{
+    content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+    background:var(--text-mute);transition:transform .2s, background .2s;
+  }
+  .switch-card.on{color:var(--text);border-color:color-mix(in srgb, var(--accent) 45%, var(--border))}
+  .switch-card.on .sc-switch{background:var(--accent);border-color:var(--accent)}
+  .switch-card.on .sc-switch::after{transform:translateX(16px);background:#fff}
+
+  /* ---------- Runden-Status (im Kopf) ---------- */
+  .rounds{
+    display:flex;gap:8px;align-items:baseline;
+    font-size:12px;color:var(--text-mute);
+  }
+  .rounds strong{color:var(--text-dim);font-weight:700}
   .rounds button{
-    background:none;border:none;color:var(--text-mute);font-size:12px;
-    text-decoration:underline;cursor:pointer;padding:0;
+    background:none;border:none;color:var(--text-mute);font-size:14px;
+    cursor:pointer;padding:0;line-height:1;
   }
 
   /* ---------- Go-Button ---------- */
-  .go-wrap{margin-top:auto;padding-top:18px}
+  .go-wrap{margin-top:auto;padding-top:8px}
   .go-btn{
     width:100%;border:none;border-radius:999px;padding:20px;cursor:pointer;
     font-size:18px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
@@ -240,9 +265,11 @@
 
 <!-- ============ Setup ============ -->
 <div class="app" id="setupView">
-  <div class="kicker">⚡ Energy Sniff</div>
-  <h1 class="title">How much<br>fun?</h1>
-  <div class="rounds" id="roundsLine"></div>
+  <div class="head-row">
+    <div class="kicker">⚡ Energy Sniff</div>
+    <div class="rounds" id="roundsLine"></div>
+  </div>
+  <h1 class="title">How much fun?</h1>
 
   <div class="fun-row">
     <div class="label" style="margin:0">Wie viel Spaß?</div>
@@ -255,7 +282,6 @@
 
   <div class="label">Schimmer</div>
   <div class="color-row" id="colorRow"></div>
-  <div class="color-name" id="colorName"></div>
 
   <div class="label">Stil</div>
   <div class="pill-row" id="styleRow"></div>
@@ -264,7 +290,7 @@
   <div class="pill-row" id="bgRow"></div>
 
   <div class="label">Extras</div>
-  <div class="pill-row" id="toggleRow"></div>
+  <div class="switch-row" id="toggleRow"></div>
 
   <input type="color" id="customColor" hidden>
 
@@ -407,9 +433,9 @@ const TOGGLES = [
   const row = document.getElementById('toggleRow');
   for (const tg of TOGGLES){
     const b = document.createElement('button');
-    b.className = 'pill';
+    b.className = 'switch-card';
     b.dataset.id = tg.id;
-    b.textContent = tg.name;
+    b.innerHTML = `<span>${tg.name}</span><span class="sc-switch"></span>`;
     b.addEventListener('click', () => {
       tg.flip(); persist(); renderSetup();
       if (navigator.vibrate) navigator.vibrate(15);
@@ -438,11 +464,12 @@ function renderRounds(){
   el.innerHTML = '';
   if (session.rounds === 0) return;
   const span = document.createElement('span');
-  span.innerHTML = `Runde <strong>${session.rounds}</strong> heute · <strong>${partyLevel(session.rounds)}</strong>`;
+  span.innerHTML = `Runde <strong>${session.rounds}</strong> · ${partyLevel(session.rounds)}`;
   const btn = document.createElement('button');
-  btn.textContent = 'Neuer Abend';
+  btn.textContent = '↺';
+  btn.setAttribute('aria-label', 'Neuer Abend');
   btn.addEventListener('click', () => {
-    if (!confirm('Runden-Zähler zurücksetzen?')) return;
+    if (!confirm('Runden-Zähler zurücksetzen (neuer Abend)?')) return;
     session = { date: today(), rounds: 0 }; saveSession(); renderRounds();
   });
   el.append(span, btn);
@@ -465,15 +492,14 @@ function renderSetup(){
   const c = currentColor();
   document.body.classList.toggle('rainbow', c.id === 'rainbow');
   document.documentElement.style.setProperty('--accent', c.hex ?? '#FF2E9A');
-  document.getElementById('colorName').innerHTML = `<strong>${c.name}</strong>`;
   customChip.style.setProperty('--chip', customHex);
   customChip.style.background = colorId === 'custom' ? customHex : '';
   document.querySelectorAll('#styleRow .pill').forEach(b =>
     b.classList.toggle('active', b.dataset.id === styleId));
   document.querySelectorAll('#bgRow .pill').forEach(b =>
     b.classList.toggle('active', b.dataset.id === bgId));
-  document.querySelectorAll('#toggleRow .pill').forEach(b =>
-    b.classList.toggle('active', TOGGLES.find(t => t.id === b.dataset.id).get()));
+  document.querySelectorAll('#toggleRow .switch-card').forEach(b =>
+    b.classList.toggle('on', TOGGLES.find(t => t.id === b.dataset.id).get()));
   renderRounds();
 }
 renderSetup();
