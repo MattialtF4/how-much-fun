@@ -257,6 +257,22 @@
     opacity:0;transition:opacity .9s ease;
   }
   .spruch.show{opacity:1}
+  .gold-btn{
+    position:absolute;left:50%;transform:translateX(-50%);
+    bottom:calc(70px + env(safe-area-inset-bottom));
+    padding:14px 28px;border:none;border-radius:999px;cursor:pointer;
+    font-size:14px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    color:#1A1200;background:linear-gradient(100deg,#FFC64D,#FFE9A8,#FFC64D);
+    box-shadow:0 0 24px rgba(255,198,77,.5), 0 0 60px rgba(255,198,77,.25);
+    display:none;
+    animation:pulse-gold 2s ease-in-out infinite;
+  }
+  .gold-btn.show{display:block}
+  .gold-btn:active{transform:translateX(-50%) scale(.96)}
+  @keyframes pulse-gold{
+    0%,100%{box-shadow:0 0 22px rgba(255,198,77,.45), 0 0 60px rgba(255,198,77,.2)}
+    50%{box-shadow:0 0 40px rgba(255,198,77,.75), 0 0 90px rgba(255,198,77,.35)}
+  }
   .overlay.done .hint{opacity:1}
   .overlay.done .hint.fade{opacity:0}
 </style>
@@ -304,6 +320,7 @@
   <canvas id="cv"></canvas>
   <div class="count"><span id="countNum"></span></div>
   <div class="spruch" id="spruchEl"></div>
+  <button class="gold-btn" id="goldBtn">🏆 Goldene Line ziehen</button>
   <div class="hint" id="swipeHint">Zum Beenden nach oben wischen</div>
 </div>
 
@@ -530,18 +547,22 @@ function sTick(freq){
 function sRiser(ms){
   const c = audio(); if (!c) return;
   const t0 = c.currentTime, dur = ms / 1000;
-  const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
-  o.type = 'sawtooth';
-  o.frequency.setValueAtTime(70, t0);
-  o.frequency.exponentialRampToValueAtTime(340, t0 + dur);
-  f.type = 'lowpass';
-  f.frequency.setValueAtTime(300, t0);
-  f.frequency.exponentialRampToValueAtTime(2400, t0 + dur);
+  // weiches Noise-Whoosh: gefiltertes Rauschen, das nach oben zieht
+  const len = Math.ceil(c.sampleRate * (dur + 0.3));
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let k = 0; k < len; k++) data[k] = Math.random() * 2 - 1;
+  const src = c.createBufferSource(); src.buffer = buf;
+  const f = c.createBiquadFilter();
+  f.type = 'bandpass'; f.Q.value = 0.9;
+  f.frequency.setValueAtTime(350, t0);
+  f.frequency.exponentialRampToValueAtTime(3200, t0 + dur);
+  const g = c.createGain();
   g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(0.07, t0 + dur);
+  g.gain.exponentialRampToValueAtTime(0.16, t0 + dur * 0.8);
   g.gain.exponentialRampToValueAtTime(0.001, t0 + dur + 0.25);
-  o.connect(f); f.connect(g); g.connect(c.destination);
-  o.start(t0); o.stop(t0 + dur + 0.3);
+  src.connect(f); f.connect(g); g.connect(c.destination);
+  src.start(t0); src.stop(t0 + dur + 0.3);
 }
 function sPing(){
   const c = audio(); if (!c) return;
@@ -594,8 +615,9 @@ function musicLevel(){
   const level = sum / (8 * 255);
   bassAvg = bassAvg * 0.97 + level * 0.03;          // rollender Grundpegel
   const rel = bassAvg > 0.02 ? level / bassAvg : 0;
-  const target = rel > 1.15 ? Math.min(1, (rel - 1) * 1.6) : 0;
-  bassPulse += (target - bassPulse) * 0.25;         // Attack/Release-Glättung
+  const target = rel > 1.08 ? Math.min(1, (rel - 1) * 2.2) : 0;
+  // schneller Attack, langsamer Release → knackige Beats, weiches Ausklingen
+  bassPulse += (target - bassPulse) * (target > bassPulse ? 0.5 : 0.12);
   return bassPulse;
 }
 
@@ -666,11 +688,17 @@ function startRoulette(){
       gold.winner = gold.idx;
       sFanfare();
       if (navigator.vibrate) navigator.vibrate([80, 60, 200]);
-      showSpruch(`Line ${gold.winner + 1} hat die goldene Line! 🏆`, 6000);
+      showSpruch('Die goldene Line! 🏆', 6000);
     }
   }
-  countTimers.push(setTimeout(jump, 600));
+  countTimers.push(setTimeout(jump, 200));
 }
+
+document.getElementById('goldBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('goldBtn').classList.remove('show');
+  startRoulette();
+});
 let W = 0, H = 0, filterOK = true;
 
 document.getElementById('goBtn').addEventListener('click', openOverlay);
@@ -777,14 +805,15 @@ function buildLines(){
     const particles = [];
     for (let p = 0; p < perLine; p++){
       const u = p / perLine;
-      const spread = Math.random() < 0.88 ? spreadCore : spreadCore * 3;  // dichter Kern + wenige Streuer
+      const taper = prof(u);   // Mitte dicker, Enden schmal
+      const spread = (Math.random() < 0.88 ? spreadCore : spreadCore * 3) * taper;
       const along = gauss() * 1.5;
       const ortho = gauss() * spread + (isDouble ? (p % 2 ? halfGap : -halfGap) : 0);
       particles.push({
         u,
         x: ax + (bx - ax) * u + (vertical ? ortho : along),
         y: ay + (by - ay) * u + (vertical ? along : ortho),
-        r: (0.35 + Math.random() * 0.95) * sizeF,
+        r: (0.35 + Math.random() * 0.95) * sizeF * (0.72 + 0.28 * taper),
         a: 0.35 + Math.random() * 0.65,
         tw: isGlitzer && Math.random() < 0.18 ? Math.random() * Math.PI * 2 : null,
         sprite: SPRITES[(Math.random() * SPRITES.length) | 0],
@@ -800,6 +829,34 @@ function linePath(line, eased, off){
   ctx.beginPath();
   ctx.moveTo(line.ax + ox, line.ay + oy);
   ctx.lineTo(line.ax + ox + (line.bx - line.ax) * eased, line.ay + oy + (line.by - line.ay) * eased);
+}
+
+// Breiten-Profil: Enden schmal, Mitte leicht dicker (wie eine echte Line)
+function prof(u){ return 0.55 + 0.75 * Math.pow(Math.sin(Math.PI * u), 0.9); }
+
+// gefüllte Form mit verjüngten Enden statt Strich mit konstanter Breite
+function coreFill(line, eased, baseW, off){
+  const N = 16;
+  const dx = line.bx - line.ax, dy = line.by - line.ay;
+  const lenL = Math.hypot(dx, dy) || 1;
+  const nx = -dy / lenL, ny = dx / lenL;
+  const ox = line.vertical ? (off || 0) : 0;
+  const oy = line.vertical ? 0 : (off || 0);
+  ctx.beginPath();
+  for (let k = 0; k <= N; k++){
+    const u = (k / N) * eased;
+    const w = baseW * prof(u) / 2;
+    const x = line.ax + dx * u + ox + nx * w;
+    const y = line.ay + dy * u + oy + ny * w;
+    if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  for (let k = N; k >= 0; k--){
+    const u = (k / N) * eased;
+    const w = baseW * prof(u) / 2;
+    ctx.lineTo(line.ax + dx * u + ox - nx * w, line.ay + dy * u + oy - ny * w);
+  }
+  ctx.closePath();
+  ctx.fill();
 }
 
 function shimmerStyle(line, t){
@@ -819,8 +876,11 @@ function drawGlow(line, eased, t, i){
   let pulse = isWinner
     ? 0.92 + 0.10 * Math.sin(t * 3)
     : 0.8 + 0.12 * Math.sin(t * 1.8 + i * 0.9);
+  let widthBoost = 1;
   if (musicBoost !== null && !isWinner){
-    pulse = 0.62 + 0.38 * musicBoost + 0.06 * Math.sin(t * 1.8 + i * 0.9);
+    // kräftig mit dem Beat pumpen: Helligkeit UND Breite
+    pulse = 0.45 + 0.75 * musicBoost + 0.05 * Math.sin(t * 1.8 + i * 0.9);
+    widthBoost = 1 + musicBoost * 0.3;
   }
   const style = isWinner ? goldStyle(line, t) : shimmerStyle(line, t + i * 0.35);
 
@@ -833,7 +893,7 @@ function drawGlow(line, eased, t, i){
   // schmal → weicher Verlauf ganz ohne sichtbare Kanten.
   // Doppel-Line: ein gemeinsamer, etwas breiterer Glow um beide Kerne.
   const PASSES = 14;
-  const maxW = 34 * line.thick + line.halfGap * 4;
+  const maxW = (34 * line.thick + line.halfGap * 4) * widthBoost;
   ctx.strokeStyle = style;
   for (let s = 1; s <= PASSES; s++){
     ctx.lineWidth = maxW * s / PASSES;
@@ -841,15 +901,15 @@ function drawGlow(line, eased, t, i){
     linePath(line, eased); ctx.stroke();
   }
 
-  // weißer Schein direkt am Powder-Kern (pro Sub-Linie), geht in die Farbe über
+  // weißer Schein direkt am Powder-Kern (pro Sub-Linie), geht in die Farbe
+  // über — als gefüllte Form mit Taper (Mitte dicker, Enden schmal)
   const offs = line.isDouble ? [-line.halfGap, line.halfGap] : [0];
   const wF = line.isGlitzer ? 1.3 : 1;
-  ctx.strokeStyle = '#fff';
+  ctx.fillStyle = '#fff';
   for (const off of offs){
     for (const wa of [[10, 0.10], [6, 0.14], [3.5, 0.20]]){
-      ctx.lineWidth = wa[0] * line.thick * wF;
       ctx.globalAlpha = wa[1] * pulse / offs.length * 1.4;
-      linePath(line, eased, off); ctx.stroke();
+      coreFill(line, eased, wa[0] * line.thick * wF, off);
     }
   }
   ctx.restore();
@@ -871,22 +931,6 @@ function drawParticles(line, eased, t){
 /* ================= Hintergrund-Ambiente ================= */
 function hexA(hex, a){
   return `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
-}
-
-function drawNumbers(){
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,.5)';
-  ctx.font = '600 13px -apple-system, BlinkMacSystemFont, sans-serif';
-  lines.forEach((l, i) => {
-    if (l.vertical){
-      ctx.textAlign = 'center';
-      ctx.fillText(i + 1, l.ax, l.ay - 12);
-    } else {
-      ctx.textAlign = 'right';
-      ctx.fillText(i + 1, l.ax - 10, l.ay + 4);
-    }
-  });
-  ctx.restore();
 }
 
 function drawBg(t){
@@ -934,9 +978,8 @@ function frame(now){
     drawParticles(lines[i], eased, t);
   }
 
-  // Goldene Line: Nummern + springendes Highlight
+  // Goldene Line: springendes Highlight
   if (gold){
-    drawNumbers();
     if (gold.winner === null && gold.idx >= 0){
       const l = lines[gold.idx];
       ctx.save();
@@ -956,7 +999,7 @@ function frame(now){
     if (navigator.vibrate) navigator.vibrate(120);
     sPing();
     session.rounds++; saveSession(); renderRounds();
-    if (goldOn && lines.length >= 2) startRoulette();
+    if (goldOn && lines.length >= 2) document.getElementById('goldBtn').classList.add('show');
     else showSpruch(SPRUECHE[(Math.random() * SPRUECHE.length) | 0]);
     // Wisch-Hinweis kurz zeigen, dann ausblenden
     hintTimer = setTimeout(() => document.getElementById('swipeHint').classList.add('fade'), 2600);
@@ -973,6 +1016,7 @@ function openOverlay(){
   gold = null;
   clearTimeout(spruchTimer);
   document.getElementById('spruchEl').classList.remove('show');
+  document.getElementById('goldBtn').classList.remove('show');
   audio();   // AudioContext in der User-Geste anlegen/aufwecken (iOS)
   if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 180]);
 
@@ -1013,6 +1057,7 @@ function closeOverlay(){
   gold = null;
   clearTimeout(spruchTimer);
   document.getElementById('spruchEl').classList.remove('show');
+  document.getElementById('goldBtn').classList.remove('show');
   stopMusicSync();
   if (raf) cancelAnimationFrame(raf);
   raf = null;
