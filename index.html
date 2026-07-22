@@ -1192,12 +1192,17 @@ function frame(now){
   // Gartenzwerg sinkt von oben, sein Strohhalm saugt die Line von oben weg.
   // Die Line endet exakt an der Halm-Spitze (Clip 4px darüber → verdeckt).
   if (helperMode === 'descend'){
-    if (!helperFinished){ gnomeY += H * 0.018; gnomeEl.style.top = gnomeY + 'px'; }
+    // langsam saugen, solange die Line noch da ist; danach zügig ganz rauslaufen
+    const lineBottom = lines[0] ? lines[0].by : H;
+    const speed = (gnomeY + GNOME_STRAW_TIP * gnomeH) < lineBottom ? 0.016 : 0.034;
+    if (!helperFinished){ gnomeY += H * speed; gnomeEl.style.top = gnomeY + 'px'; }
     const strawTipY = gnomeY + GNOME_STRAW_TIP * gnomeH;
     const clearY = Math.min(H, strawTipY - 4);
     if (clearY > 0) ctx.clearRect(0, 0, W, clearY);
-    if (strawTipY >= H * 0.9 && !helperFinished){
+    // Zwerg erst KOMPLETT unten aus dem Bild laufen lassen, DANN der Spruch
+    if (gnomeY >= H && !helperFinished){
       helperFinished = true;
+      gnomeEl.classList.remove('show');
       document.getElementById('spruchEl').classList.add('big');
       showSpruch(SPRUECHE[(Math.random() * SPRUECHE.length) | 0], 2200);
       if (navigator.vibrate) navigator.vibrate(60);
