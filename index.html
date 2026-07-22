@@ -316,6 +316,27 @@ function gauss(){
   return (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2;
 }
 
+// Vorgerenderte Powder-Körnchen: Radial-Verlauf mit versetztem Glanzpunkt → 3D-Look
+const SPRITES = [];
+(function makeSprites(){
+  for (let v = 0; v < 3; v++){
+    const s = document.createElement('canvas');
+    s.width = s.height = 24;
+    const c = s.getContext('2d');
+    const r = 12, ang = v * 2.1;
+    const hx = 12 + Math.cos(ang) * r * 0.28;
+    const hy = 12 + Math.sin(ang) * r * 0.28 - r * 0.1;
+    const g = c.createRadialGradient(hx, hy, r * 0.06, 12, 12, r);
+    g.addColorStop(0,    'rgba(255,255,255,1)');
+    g.addColorStop(0.3,  'rgba(255,255,255,.92)');
+    g.addColorStop(0.65, 'rgba(232,232,240,.5)');
+    g.addColorStop(1,    'rgba(215,215,228,0)');
+    c.fillStyle = g;
+    c.beginPath(); c.arc(12, 12, r, 0, Math.PI * 2); c.fill();
+    SPRITES.push(s);
+  }
+})();
+
 function sizeCanvas(){
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   W = window.innerWidth; H = window.innerHeight;
@@ -358,7 +379,8 @@ function buildLines(){
       ax = (W - len) / 2; bx = ax + len; ay = y; by = y;
     }
 
-    const perLine = Math.round(Math.min(2200, Math.max(500, len * 2.8 * sizeF)));
+    // feinere, dichtere Körnchen (bei vielen Linien etwas reduziert für Performance)
+    const perLine = Math.round(Math.min(1800, Math.max(600, len * 4.2 * sizeF)) * (n > 4 ? 0.75 : 1));
 
     const particles = [];
     for (let p = 0; p < perLine; p++){
@@ -369,8 +391,9 @@ function buildLines(){
         u,
         x: ax + (bx - ax) * u + (vertical ? ortho : along),
         y: ay + (by - ay) * u + (vertical ? along : ortho),
-        r: (0.5 + Math.random() * 1.3) * sizeF,
+        r: (0.35 + Math.random() * 0.95) * sizeF,
         a: 0.35 + Math.random() * 0.65,
+        sprite: SPRITES[(Math.random() * SPRITES.length) | 0],
       });
     }
     lines.push({ ax, ay, bx, by, thick, particles });
@@ -394,57 +417,43 @@ function shimmerStyle(line, t){
 }
 
 function drawGlow(line, eased, t, i){
-  const pulse = colorId === 'rainbow'
-    ? 0.6 + 0.15 * Math.sin(t * 2.4 + i * 0.9)
-    : 0.5 + 0.28 * Math.sin(t * 2.4 + i * 0.9);
+  // ganz leichtes Pulsieren
+  const pulse = 0.8 + 0.12 * Math.sin(t * 1.8 + i * 0.9);
   const style = shimmerStyle(line, t + i * 0.35);
 
   ctx.save();
   ctx.lineCap = 'round';
+  ctx.globalCompositeOperation = 'lighter';
+  if (filterOK) ctx.filter = 'blur(3px)';
+
+  // Farbiger Schimmer: viele hauchdünne additive Schichten von breit nach
+  // schmal → weicher Verlauf ganz ohne sichtbare Kanten
+  const PASSES = 14;
+  const maxW = 34 * line.thick;
   ctx.strokeStyle = style;
-
-  if (filterOK){
-    // äußerer weicher Schimmer + innerer hellerer Kern
-    ctx.filter = 'blur(16px)';
-    ctx.globalAlpha = pulse * 0.7;
-    ctx.lineWidth = 26 * line.thick;
-    linePath(line, eased); ctx.stroke();
-
-    ctx.filter = 'blur(6px)';
-    ctx.globalAlpha = pulse;
-    ctx.lineWidth = 9 * line.thick;
-    linePath(line, eased); ctx.stroke();
-    ctx.filter = 'none';
-  } else {
-    // Fallback ohne Canvas-Filter: shadowBlur
-    const base = (t * 55 + i * 40) % 360;
-    ctx.shadowColor = colorId === 'rainbow' ? `hsl(${base} 100% 60%)` : currentColor().hex;
-    ctx.shadowBlur = 26;
-    ctx.globalAlpha = pulse * 0.55;
-    ctx.lineWidth = 10 * line.thick;
+  for (let s = 1; s <= PASSES; s++){
+    ctx.lineWidth = maxW * s / PASSES;
+    ctx.globalAlpha = pulse * 0.05;
     linePath(line, eased); ctx.stroke();
   }
 
-  // dezenter weißer Powder-Schein direkt an der Linie
-  ctx.filter = 'none';
-  ctx.shadowColor = 'rgba(255,255,255,.35)';
-  ctx.shadowBlur = 14;
-  ctx.strokeStyle = 'rgba(255,255,255,.05)';
-  ctx.globalAlpha = 1;
-  ctx.lineWidth = 12 * line.thick;
-  linePath(line, eased); ctx.stroke();
+  // weißer Schein direkt am Powder-Kern, der in die Farbe übergeht
+  ctx.strokeStyle = '#fff';
+  for (const wa of [[10, 0.10], [6, 0.14], [3.5, 0.20]]){
+    ctx.lineWidth = wa[0] * line.thick;
+    ctx.globalAlpha = wa[1] * pulse;
+    linePath(line, eased); ctx.stroke();
+  }
   ctx.restore();
 }
 
 function drawParticles(line, eased){
-  ctx.fillStyle = '#fff';
   for (const p of line.particles){
     if (p.u > eased) break;
     const fresh = eased < 1 && eased - p.u < 0.06;
+    const d = (fresh ? p.r * 1.6 : p.r) * 2.6;   // Sprite hat weichen Rand → etwas größer zeichnen
     ctx.globalAlpha = fresh ? 1 : p.a;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, fresh ? p.r * 1.6 : p.r, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.drawImage(p.sprite, p.x - d / 2, p.y - d / 2, d, d);
   }
   ctx.globalAlpha = 1;
 }
