@@ -147,7 +147,15 @@
       conic-gradient(from 210deg,#FF5E5E,#FFC64D,#D4FF3F,#2EA8FF,#B44DFF,#FF2E9A,#FF5E5E) border-box;
     border:2px solid transparent;
     display:grid;place-items:center;font-size:15px;line-height:1;
+    position:relative;overflow:hidden;
   }
+  /* nativer Color-Input transparent über dem Chip → öffnet den Picker per echtem Tap (iOS) */
+  .custom-input{
+    position:absolute;inset:0;width:100%;height:100%;
+    opacity:0;border:none;padding:0;margin:0;cursor:pointer;
+  }
+  .custom-emoji{pointer-events:none}
+  .color-chip.custom.picked .custom-emoji{opacity:0}
 
   /* ---------- Pills (Stil / Ambiente) ---------- */
   .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
@@ -329,8 +337,6 @@
   <div class="label">Extras</div>
   <div class="switch-row" id="toggleRow"></div>
 
-  <input type="color" id="customColor" hidden>
-
   <div class="go-wrap">
     <button class="go-btn" id="goBtn">⚡ Let's go</button>
   </div>
@@ -436,21 +442,24 @@ for (const c of COLORS){
   colorRow.appendChild(b);
 }
 
-// Eigene Farbe (Color-Picker)
-const customChip  = document.createElement('button');
-const customInput = document.getElementById('customColor');
+// Eigene Farbe: <label> mit echtem, transparent überlagertem <input type=color>.
+// Tap trifft den Input direkt → nativer Picker öffnet (auch auf iOS).
+const customChip  = document.createElement('label');
 customChip.className = 'color-chip custom';
 customChip.dataset.id = 'custom';
-customChip.textContent = '🎨';
 customChip.setAttribute('aria-label', 'Eigene Farbe');
-customChip.addEventListener('click', () => {
-  customInput.value = customHex;
-  colorId = 'custom'; persist(); renderSetup();
-  customInput.click();
-});
+const customEmoji = document.createElement('span');
+customEmoji.className = 'custom-emoji';
+customEmoji.textContent = '🎨';
+const customInput = document.createElement('input');
+customInput.type = 'color';
+customInput.className = 'custom-input';
+customInput.value = customHex;
+customChip.append(customEmoji, customInput);
 customInput.addEventListener('input', () => {
   customHex = customInput.value; colorId = 'custom';
   persist(); renderSetup();
+  if (navigator.vibrate) navigator.vibrate(15);
 });
 colorRow.appendChild(customChip);
 
@@ -544,6 +553,8 @@ function renderSetup(){
   document.documentElement.style.setProperty('--accent', c.hex ?? '#FF2E9A');
   customChip.style.setProperty('--chip', customHex);
   customChip.style.background = colorId === 'custom' ? customHex : '';
+  customChip.classList.toggle('picked', colorId === 'custom');
+  customInput.value = customHex;
   document.querySelectorAll('#styleRow .pill').forEach(b =>
     b.classList.toggle('active', b.dataset.id === styleId));
   document.querySelectorAll('#bgRow .pill').forEach(b =>
@@ -743,7 +754,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay
 // Beenden per Schieber: Hochwischen fährt die Schaufel mit dem Finger hoch
 // und schiebt die Lines weg (Escape bleibt als Desktop-Fallback)
 const toolEl = document.getElementById('toolImg');
-let dragY0 = null, wipeY = null, wipeMode = null, wipeFinished = false, toolLead = 0, curLeadFrac = 0.045;
+let dragY0 = null, wipeY = null, wipeMode = null, wipeFinished = false, toolLead = 0, toolH = 0, curLeadFrac = 0.045;
 
 // Werkzeug-Grafik + Größe/Rotation setzen (in openOverlay aufgerufen)
 function applyTool(){
@@ -755,8 +766,8 @@ function applyTool(){
 }
 function ensureToolMetrics(){
   toolEl.classList.add('show');
-  const h = toolEl.offsetHeight || (toolEl.offsetWidth * 1.792);
-  toolLead = curLeadFrac * h;
+  toolH = toolEl.offsetHeight || (toolEl.offsetWidth * 1.792);
+  toolLead = curLeadFrac * toolH;
 }
 function placeTool(y){ toolEl.style.top = (y - toolLead) + 'px'; }
 
@@ -1081,9 +1092,12 @@ function frame(now){
   // ist weggeschoben. Kleiner Überlappungs-Clip → garantiert kein Spalt.
   if (wipeY !== null){
     if (wipeMode === 'complete'){
-      wipeY += (-H * 0.25 - wipeY) * 0.22;
+      // Werkzeug mit konstantem Tempo ganz nach oben aus dem Bild fahren
+      // (gleiche Dauer für alle Werkzeuge, unabhängig von der Höhe)
+      wipeY -= toolH * 0.035;
       placeTool(wipeY);
-      if (wipeY < -H * 0.12 && !wipeFinished){
+      const elemBottom = (wipeY - toolLead) + toolH;   // Unterkante des Werkzeugs
+      if (elemBottom < 0 && !wipeFinished){
         wipeFinished = true;
         toolEl.classList.remove('show');
         document.getElementById('spruchEl').classList.add('big');
